@@ -1,10 +1,8 @@
 ## Requirements
 
-- Unity 6.1
-- ML-Agents Release 23
-- Python 3.11
-- PyTorch 2.7
-- CUDA 12.8 (Optional)
+- Unity 6.0  :(6000.5.6f1)
+- ML-Agents Package  :com.unity.ml-agents 4.1.0
+- Python 
 
 ## References
 
