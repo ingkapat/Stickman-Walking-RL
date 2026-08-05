@@ -8,7 +8,7 @@
 
 ## References
 
-- Unity 6.1
+- [Unity 6.1](https://www.youtube.com/watch?v=MSXVGjtQx9M)
 - ML-Agents Release 23
 - Python 3.11
 - PyTorch 2.7
