@@ -6,7 +6,7 @@
 - PyTorch 2.7
 - CUDA 12.8 (Optional)
 
-## Requirements
+## References
 
 - Unity 6.1
 - ML-Agents Release 23
