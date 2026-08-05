@@ -1,0 +1,26 @@
+# Unity
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+
+# ML-Agents
+mlagents-env/
+results/
+__pycache__/
+*.pyc
+
+# Visual Studio
+.vs/
+*.csproj
+*.sln.user
+*.suo
+Assembly-*.csproj
+
+# OS
+.DS_Store
+Thumbs.db
