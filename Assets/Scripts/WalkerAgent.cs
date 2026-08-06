@@ -16,17 +16,34 @@ public class WalkerAgent : Agent
     public float fallHeadYThreshold = -3.0f;
     public float maxMotorSpeed = 300f;
     public float targetSpeed = 5f;
-    public float goalDistance = 30f; // เดินถึงจุดนี้ = ชนะ + reset
+    public float goalDistance = 10000f; // แทบไม่ใช้ (สูงมาก)
+
+    [Header("Height Rewards")]
+    public float startBodyY = 0f;
+    public float bodyHeightBonusScale = 0.05f;
+
+    [Header("Fall Condition")]
+    public float bodyMinY = -2.5f;
+    public float maxBodyTilt = 60f;
+
+    [Header("Laser Pursuer")]
+    public Transform pursuerVisual;
+    public float pursuerSpeed = 1.0f;
+    public float pursuerStartOffset = -3.0f;
+    public bool pursuerEnabled = true;
 
     private Vector2 startBodyPos;
     private Vector2[] partsStartPos;
     private float[] partsStartRot;
     private Rigidbody2D[] allParts;
     private float maxDistanceReached;
+    private int stepsWithoutProgress;
+    private float pursuerX;
 
     public override void Initialize()
     {
         startBodyPos = body.position;
+        startBodyY = body.position.y;
 
         var rbs = GetComponentsInChildren<Rigidbody2D>();
         allParts = rbs;
@@ -38,7 +55,6 @@ public class WalkerAgent : Agent
             partsStartRot[i] = rbs[i].rotation;
         }
 
-        // ไม่ให้ชิ้นส่วนตัวเองชนกัน
         var cols = GetComponentsInChildren<Collider2D>();
         for (int i = 0; i < cols.Length; i++)
         {
@@ -59,6 +75,15 @@ public class WalkerAgent : Agent
             allParts[i].angularVelocity = 0f;
         }
         maxDistanceReached = 0f;
+        stepsWithoutProgress = 0;
+
+        pursuerX = startBodyPos.x + pursuerStartOffset;
+        if (pursuerVisual != null)
+        {
+            var p = pursuerVisual.position;
+            p.x = pursuerX;
+            pursuerVisual.position = p;
+        }
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -88,30 +113,64 @@ public class WalkerAgent : Agent
         }
 
         float velX = body.linearVelocity.x;
+        float bodyTiltDeg = Mathf.Abs(Mathf.DeltaAngle(body.rotation, 0f));
 
-        AddReward(velX * 0.05f);
-
-        if (velX > targetSpeed * 0.5f)
+        // LASER
+        if (pursuerEnabled)
         {
-            float speedBonus = (velX / targetSpeed) * (velX / targetSpeed) * 0.02f;
-            AddReward(speedBonus);
+            pursuerX += pursuerSpeed * Time.fixedDeltaTime;
+            if (pursuerVisual != null)
+            {
+                var p = pursuerVisual.position;
+                p.x = pursuerX;
+                pursuerVisual.position = p;
+            }
+            if (body.position.x < pursuerX)
+            {
+                AddReward(-2f);
+                EndEpisode();
+                return;
+            }
         }
+
+        // HEIGHT REWARD
+        float bodyHeightRatio = Mathf.Clamp01((body.position.y - bodyMinY) / (startBodyY - bodyMinY));
+        AddReward(velX * 0.3f * bodyHeightRatio);
+        AddReward(bodyHeightRatio * bodyHeightBonusScale);
 
         float dist = body.position.x - startBodyPos.x;
         if (dist > maxDistanceReached)
         {
-            AddReward((dist - maxDistanceReached) * 0.1f);
+            AddReward((dist - maxDistanceReached) * 1.0f * bodyHeightRatio);
             maxDistanceReached = dist;
+            stepsWithoutProgress = 0;
         }
-
-        if (velX < 0.1f)
+        else
         {
-            AddReward(-0.005f);
+            stepsWithoutProgress++;
         }
 
-        AddReward(0.001f);
+        if (Mathf.Abs(velX) < 0.5f)
+        {
+            AddReward(-0.02f);
+        }
 
-        // ล้ม → penalty + reset
+        // END CONDITIONS (no goal reset — laser + fall เท่านั้น)
+
+        if (body.position.y < bodyMinY)
+        {
+            AddReward(-1.0f);
+            EndEpisode();
+            return;
+        }
+
+        if (bodyTiltDeg > maxBodyTilt)
+        {
+            AddReward(-1.0f);
+            EndEpisode();
+            return;
+        }
+
         if (head.position.y < fallHeadYThreshold)
         {
             AddReward(-1.0f);
@@ -119,15 +178,20 @@ public class WalkerAgent : Agent
             return;
         }
 
-        // ถึงเป้า → bonus + reset
         if (dist > goalDistance)
         {
-            AddReward(10f); // รางวัลใหญ่!
+            AddReward(10f);
             EndEpisode();
             return;
         }
 
-        // ถอยหลังไกล → reset (กันการเรียนถอย)
+        if (stepsWithoutProgress > 500)
+        {
+            AddReward(-2f);
+            EndEpisode();
+            return;
+        }
+
         if (dist < -5f)
         {
             AddReward(-1.0f);
