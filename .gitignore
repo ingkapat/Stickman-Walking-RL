@@ -24,3 +24,8 @@ Assembly-*.csproj
 # OS
 .DS_Store
 Thumbs.db
+
+# WebGL build exceptions
+!WebGLBuild/
+!WebGLBuild/Build/
+!WebGLBuild/Build/*
