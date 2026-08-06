@@ -5,24 +5,24 @@ using Unity.MLAgents.Sensors;
 
 public class WalkerAgent : Agent
 {
-    [Header("Body Parts (drag from Hierarchy)")]
+    [Header("Body Parts")]
     public Rigidbody2D body;
     public Rigidbody2D head;
 
-    [Header("Joints (drag all 8 in Inspector)")]
+    [Header("Joints")]
     public HingeJoint2D[] joints;
 
-    [Header("Reward Settings")]
+    [Header("Settings")]
     public float fallHeadYThreshold = -3.0f;
     public float maxMotorSpeed = 300f;
     public float targetSpeed = 5f;
-    public float goalDistance = 10000f; // แทบไม่ใช้ (สูงมาก)
+    public float goalDistance = 10000f;
 
-    [Header("Height Rewards")]
+    [Header("Height")]
     public float startBodyY = 0f;
     public float bodyHeightBonusScale = 0.05f;
 
-    [Header("Fall Condition")]
+    [Header("Fall")]
     public float bodyMinY = -2.5f;
     public float maxBodyTilt = 60f;
 
@@ -31,6 +31,9 @@ public class WalkerAgent : Agent
     public float pursuerSpeed = 1.0f;
     public float pursuerStartOffset = -3.0f;
     public bool pursuerEnabled = true;
+
+    [Header("Demo Mode (tick for inference)")]
+    public bool demoMode = false;
 
     private Vector2 startBodyPos;
     private Vector2[] partsStartPos;
@@ -44,6 +47,12 @@ public class WalkerAgent : Agent
     {
         startBodyPos = body.position;
         startBodyY = body.position.y;
+
+        // Auto-hide laser in demo mode
+        if (demoMode && pursuerVisual != null)
+        {
+            pursuerVisual.gameObject.SetActive(false);
+        }
 
         var rbs = GetComponentsInChildren<Rigidbody2D>();
         allParts = rbs;
@@ -63,6 +72,7 @@ public class WalkerAgent : Agent
                 Physics2D.IgnoreCollision(cols[i], cols[j], true);
             }
         }
+
     }
 
     public override void OnEpisodeBegin()
@@ -115,8 +125,7 @@ public class WalkerAgent : Agent
         float velX = body.linearVelocity.x;
         float bodyTiltDeg = Mathf.Abs(Mathf.DeltaAngle(body.rotation, 0f));
 
-        // LASER
-        if (pursuerEnabled)
+        if (pursuerEnabled && !demoMode)
         {
             pursuerX += pursuerSpeed * Time.fixedDeltaTime;
             if (pursuerVisual != null)
@@ -133,7 +142,6 @@ public class WalkerAgent : Agent
             }
         }
 
-        // HEIGHT REWARD
         float bodyHeightRatio = Mathf.Clamp01((body.position.y - bodyMinY) / (startBodyY - bodyMinY));
         AddReward(velX * 0.3f * bodyHeightRatio);
         AddReward(bodyHeightRatio * bodyHeightBonusScale);
@@ -150,12 +158,10 @@ public class WalkerAgent : Agent
             stepsWithoutProgress++;
         }
 
-        if (Mathf.Abs(velX) < 0.5f)
+        if (!demoMode && Mathf.Abs(velX) < 0.5f)
         {
             AddReward(-0.02f);
         }
-
-        // END CONDITIONS (no goal reset — laser + fall เท่านั้น)
 
         if (body.position.y < bodyMinY)
         {
@@ -178,21 +184,21 @@ public class WalkerAgent : Agent
             return;
         }
 
-        if (dist > goalDistance)
+        if (!demoMode && dist > goalDistance)
         {
             AddReward(10f);
             EndEpisode();
             return;
         }
 
-        if (stepsWithoutProgress > 500)
+        if (!demoMode && stepsWithoutProgress > 500)
         {
             AddReward(-2f);
             EndEpisode();
             return;
         }
 
-        if (dist < -5f)
+        if (!demoMode && dist < -5f)
         {
             AddReward(-1.0f);
             EndEpisode();
